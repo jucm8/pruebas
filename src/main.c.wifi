@@ -1,0 +1,135 @@
+#include "zephyr/kernel.h"
+#include "zephyr/net/dhcpv4.h"
+#include "zephyr/net/net_event.h"
+#include "zephyr/net/net_mgmt.h"
+#include "zephyr/net/socket.h"
+#include "zephyr/net/wifi.h"
+#include <string.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/net/wifi_mgmt.h>
+
+
+LOG_MODULE_REGISTER(app);
+
+#define USER_STACKSIZE	2048
+K_THREAD_STACK_DEFINE(user_stack, USER_STACKSIZE);
+
+#define WIFI_SSID     "sardina_wifi_24"
+#define WIFI_PASSWORD "#(nNNJjf"
+
+typedef enum {
+    IF_READY
+}tmessage;
+K_MSGQ_DEFINE(msg_queue, sizeof(tmessage), 10, 1);
+
+static struct net_mgmt_event_callback wifi_cb;
+void net_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface) {
+
+    tmessage msg;
+    LOG_INF("Net handler ejecutado...");
+    switch (mgmt_event) {
+        case NET_EVENT_IPV4_ADDR_ADD:
+            LOG_INF("IP added");
+            msg = IF_READY;
+            k_msgq_put(&msg_queue, &msg, K_FOREVER);
+            break;
+    }
+}
+
+
+
+/* Static IP configuration */
+static void configure_static_ip(void)
+{
+    LOG_INF("PUNTO 1");
+    struct net_if *iface = net_if_get_default();
+    if (!iface) {
+        LOG_INF("No default network interface");
+        return;
+    }
+
+    net_dhcpv4_start(iface);
+    LOG_INF("Interfaz OK");
+
+    net_mgmt_init_event_callback(&wifi_cb, net_handler,
+                                 NET_EVENT_IPV4_ADDR_ADD
+        );
+    net_mgmt_add_event_callback(&wifi_cb);
+
+    struct wifi_connect_req_params wifi_params = {
+        .ssid = WIFI_SSID,
+        .ssid_length = strlen(WIFI_SSID),
+        .psk = WIFI_PASSWORD,
+        .psk_length = strlen(WIFI_PASSWORD),
+        .channel = WIFI_CHANNEL_ANY,
+        .security = WIFI_SECURITY_TYPE_WPA_AUTO_PERSONAL,
+    };
+
+    int ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &wifi_params,
+                       sizeof(struct wifi_connect_req_params));
+    
+    if (ret) {
+        LOG_ERR("Wi-Fi connection failed: %d", ret);
+    } else {
+        LOG_INF("Wi-Fi connection requested");
+    }
+}
+
+
+// Thread function for userspace
+void thread_entry(void *p1, void *p2, void *p3) {
+    printk("Hello from userspace thread!\n");
+    while (1) {
+        k_sleep(K_SECONDS(1));
+    }
+}
+
+int main(void)
+{
+    //configure_static_ip();
+    //int sock = zsock_socket(AF_INET, SOCK_STREAM, 0);
+    //if (!sock) {
+    //    perror("Failed to create socket:");
+    //    return 0;
+    //}
+
+    //struct sockaddr_in server_addr;
+    //net_addr_pton(AF_INET, "147.96.22.122", &server_addr);
+    //server_addr.sin_port = 8888;
+    //if (zsock_connect(sock, (struct sockaddr*) &server_addr, sizeof(server_addr)) == -1) {
+    //    perror("Failed to connect socket");
+    //    return 0;
+    //}
+
+    //char msg[] = "Hola";
+    //zsock_send(sock, &msg, sizeof(msg), 0);
+    //
+    //
+
+
+    //struct net_if *iface = net_if_get_default();
+    //while (1) {
+
+    //    tmessage msg;
+    //    int ret = k_msgq_get(&msg_queue, &msg, K_FOREVER);
+    //    if (ret != 0)
+    //        continue;
+
+    //    switch (msg) {
+    //        case IF_READY:
+    //            char ip[64];
+    //            net_addr_ntop(AF_INET, &iface->config.ip.ipv4->unicast[0].ipv4.address.in_addr, (char*)&ip, sizeof(ip));
+    //            LOG_INF("IP: %s", ip);
+    //            break;
+    //    }
+    //    LOG_INF("Mensaje recibido");
+    //}
+
+    struct k_thread thread_data;
+    k_thread_create(&thread_data, user_stack, USER_STACKSIZE,
+                        thread_entry, NULL, NULL, NULL,
+                        -1, K_USER, K_NO_WAIT);
+
+    return 0;
+}
