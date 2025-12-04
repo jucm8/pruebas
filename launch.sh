@@ -10,3 +10,5 @@ if [ "$BOARD" = "rpi_pico/rp2040/w" ]; then
 else
     west build -b $BOARD
 fi
+west -v flash
+ttylog -b 115200 -f -d /dev/ttyACM0

@@ -40,6 +40,7 @@ int load_ext() {
 		LOG_ERR("Failed to load extension");
 		return 1;
 	}
+
 	void (*ext1_start)() = llext_find_sym(&ext1->exp_tab, "start");
 	if (ext1_start == NULL) {
 		LOG_ERR("Failed to find entrypoint for extension 1");
