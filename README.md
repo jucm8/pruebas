@@ -1,2 +1,2 @@
-1. Hacer `west update`
-2. Usar launch.sh para ejecutar.
+1. Usar `init.sh` para inicializar proyecto.
+2. Configurar la placa en el script `launch.sh` y lanzar para ejecutar.
