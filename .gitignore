@@ -3,3 +3,6 @@ venv
 .cache
 /openocd
 /build
+/modules
+/tools
+/bootloader
