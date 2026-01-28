@@ -5,10 +5,10 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(hello_world)
 
-target_sources(app PRIVATE src/main.c)
+target_sources(app PRIVATE src/main.c ./src/llextc.c ./src/llextc_priv.c src/llextc_utils.c ./src/llextc_container_api.c)
 
 add_llext_target(
   extension1
   OUTPUT ext1.llext
-  SOURCES ./src/ext1.c
+  SOURCES ./src/ext1.c #./src/llextc_container_api.c
 )
