@@ -12,4 +12,4 @@ else
     west build -b $BOARD
     west -v flash -r jlink
 fi
-ttylog -b 115200 -f -d /dev/ttyACM1
+ttylog -b 115200 -f -d /dev/ttyACM0

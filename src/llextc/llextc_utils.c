@@ -1,6 +1,5 @@
-#include "llextc.h"
+#include "llextc_utils.h"
 #include "llextc_priv.h"
-#include "llextc_container_api.h"
 
 char *llext_container_status_string[] = {
     "NO_IMAGE",

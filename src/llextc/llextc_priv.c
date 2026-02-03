@@ -4,17 +4,19 @@
 #include <zephyr/kernel/thread.h>
 #include <zephyr/llext/llext.h>
 #include <zephyr/logging/log.h>
-#include "syscalls/kernel.h"
-#include "zephyr/app_memory/mem_domain.h"
-#include "zephyr/kernel.h"
+#include <syscalls/kernel.h>
+#include <zephyr/app_memory/mem_domain.h>
+#include <zephyr/internal/syscall_handler.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/libc-hooks.h>
+#include <zephyr/sys/uuid.h>
+#include <zephyr/zbus/zbus.h>
+
+#include "llextc_utils.h"
+#include "container_api/c_api.h"
 #include "llextc.h"
 #include "llextc_priv.h"
-#include "buff.h"
-#include "zephyr/sys/libc-hooks.h"
-#include <zephyr/sys/uuid.h>
-#include "llextc_container_api.h"
-#include "llextc_utils.h"
-#include <zephyr/zbus/zbus.h>
+#include "../buff.h"
 
 LOG_MODULE_REGISTER(llextc_priv);
 
@@ -208,7 +210,7 @@ end:
 	return ret;
 }
 
-void thread_entry(void *ext_entry, void *p2, void *p3) {
+void thread_entry(void *ext_entry, void *user_heap, void *p3) {
 
 	//struct llextc_container_slot *slot = (struct llextc_container_slot*) p1;
 	LOG_INF("Entered user thread (%p)", k_current_get());
@@ -249,7 +251,7 @@ int start_container(struct llextc_container_slot *slot) {
 
 	slot->stack = stack;
 
-	k_tid_t tid = k_thread_create(&slot->thread, stack, 1024, 
+	k_tid_t tid = k_thread_create(&slot->thread, stack, 2048, 
 							   thread_entry, ext_start, NULL, NULL, 8, K_USER, K_FOREVER);
 
 	if (k_mem_domain_add_thread(&llextc_domain, tid)) {
@@ -267,7 +269,7 @@ struct llextc_container_slot *get_container_slots() {
 	return container_slots;
 }
 
-int llextc_send_message(char *dst, void *msg, uint32_t msg_size) {
+int llextc_send_message(char *dst, void *msg, uint32_t msg_size, k_timeout_t timeout) {
 
 	LOG_INF("thread %p enter send_message syscall", k_current_get());
 	struct llextc_container_slot *dst_slot = get_slot_by_container_name(dst);
@@ -287,7 +289,7 @@ int llextc_send_message(char *dst, void *msg, uint32_t msg_size) {
 
 	k_tid_t dst_tid = &dst_slot->thread;
 	char *msg_buff = k_malloc(msg_size);
-	memcpy(msg_buff, msg, msg_size);
+	k_usermode_from_copy(msg_buff, msg, msg_size);
 	struct k_mbox_msg mbox_msg = {
 		.info = (uint32_t) k_current_get(), // Sender tid in the info field
 		.tx_data = msg_buff,
@@ -296,7 +298,7 @@ int llextc_send_message(char *dst, void *msg, uint32_t msg_size) {
 	};
 
 	LOG_INF("Sending message from thread %p, to thread %p", k_current_get(), dst_tid);
-	k_mbox_async_put(&llextc_mailbox, &mbox_msg, NULL);
+	k_mbox_put(&llextc_mailbox, &mbox_msg, timeout);
 	LOG_INF("lkjlkjlkjlkjlkj");
 	return LLEXTC_OK;
 }
@@ -311,14 +313,16 @@ int llextc_receive_message(uint8_t *buff, char *sender, k_timeout_t timeout) {
 		.rx_source_thread = K_ANY
 	};
 
-	int ret = k_mbox_get(&llextc_mailbox, &msg, buff, timeout);
+	void *buff2 = k_malloc(LLEXTC_CONTAINER_MESSAGE_MAX_SIZE);
+	int ret = k_mbox_get(&llextc_mailbox, &msg, buff2, timeout);
 	if (ret)
 		return 0;
 
-	LOG_INF("FALLO MIO\n");
+	LOG_INF("Received msg size: %d\n", msg.size);
 	LOG_INF("MSG info received: %p", (k_tid_t) msg.info);
 	struct llextc_container_slot *slot = get_slot_by_tid((k_tid_t) msg.info);
-	strcpy(sender, slot->name);
+	k_usermode_to_copy(buff, buff2, msg.size);
+	k_usermode_to_copy(sender, slot->name, strlen(slot->name) + 1);
 	return msg.size;	
 }
 
@@ -331,7 +335,7 @@ int llextc_chan_read(struct llextc_zbus_msg *msg, k_timeout_t timeout) {
 
 	struct llextc_container_slot *slot = get_slot_by_tid(k_current_get());
 	const struct zbus_channel *chan;
-	zbus_sub_wait_msg(slot->obs, &chan, msg, K_FOREVER);
-	return zbus_chan_read(&llextc_zbus_chan, msg, K_FOREVER);
-	//return zbus_sub_wait_msg(slot->obs, &chan, msg, K_FOREVER);
+	//zbus_sub_wait_msg(slot->obs, &chan, msg, K_FOREVER);
+//	return zbus_chan_read(&llextc_zbus_chan, msg, K_FOREVER);
+	return zbus_sub_wait_msg(slot->obs, &chan, msg, timeout);
 }

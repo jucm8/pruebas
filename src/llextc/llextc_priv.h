@@ -1,6 +1,7 @@
 #pragma once
 
-#include "llextc_container_api.h"
+#include "container_api/c_api.h"
+#include "zephyr/kernel.h"
 #include "zephyr/llext/llext.h"
 #include "llextc.h"
 #include "zephyr/zbus/zbus.h"
@@ -25,14 +26,10 @@ struct llextc_container_slot {
     llextc_container_status status;
     k_thread_stack_t *stack;
     struct llext *llext;
-    // Executable memory partition, where the code
-    // for the llext extension will be stored. 
-    // A bit redundant, but convenient struct field.
-    uint8_t *memory_partition;
-    // TODO heap
     struct k_thread thread;
     struct llextc_image *image;
     const struct zbus_observer *obs;
+    struct k_heap heap;
 };
 
 
@@ -53,7 +50,7 @@ int llextc_container_end_handler(k_tid_t tid);
 struct llextc_container_slot *get_container_slots();
 int llextc_chan_pub(struct llextc_zbus_msg *msg, k_timeout_t timeout);
 int llextc_chan_read(struct llextc_zbus_msg *msg, k_timeout_t timeout);
-int llextc_send_message(char *dst, void *msg, uint32_t msg_size);
+int llextc_send_message(char *dst, void *msg, uint32_t msg_size, k_timeout_t timeout);
 int llextc_receive_message(uint8_t *buff, char *sender, k_timeout_t timeout);
 
 __syscall void container_exit(void);

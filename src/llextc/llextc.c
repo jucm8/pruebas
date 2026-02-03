@@ -1,14 +1,13 @@
-#include <stdlib.h>
 #include <string.h>
+#include <zephyr/kernel.h>
+#include <syscalls/kernel.h>
+#include <zephyr/sys/uuid.h>
 #include <zephyr/llext/buf_loader.h>
 #include <zephyr/kernel/thread.h>
 #include <zephyr/llext/llext.h>
 #include <zephyr/logging/log.h>
 #include "llextc.h"
 #include "llextc_priv.h"
-#include "syscalls/kernel.h"
-#include "zephyr/kernel.h"
-#include <zephyr/sys/uuid.h>
 
 LOG_MODULE_REGISTER(llextc);
 

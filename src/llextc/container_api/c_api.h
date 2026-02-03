@@ -29,9 +29,13 @@ struct llextc_zbus_msg {
     uint8_t msg[64];
 };
 
-__syscall int send_message(char *dst, void *msg, uint32_t msg_size);
+__syscall int send_message(char *dst, void *msg, uint32_t msg_size, k_timeout_t timeout);
 __syscall int receive_message(uint8_t *buff, char *sender, k_timeout_t timeout);
 
 __syscall int zbuss_publish(struct llextc_zbus_msg *msg, k_timeout_t timeout);
 __syscall int zbuss_receive(struct llextc_zbus_msg *msg, k_timeout_t timeout);
-#include <zephyr/syscalls/llextc_container_api.h>
+
+__syscall void llextc_heap_init(struct k_heap *heap, void *mem, size_t size);
+__syscall void* llextc_heap_alloc(struct k_heap *heap, size_t size, k_timeout_t timeout);
+__syscall void llextc_heap_free(struct k_heap *heap, k_timeout_t timeout);
+#include <zephyr/syscalls/c_api.h>
